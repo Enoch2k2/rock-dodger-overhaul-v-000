@@ -7,11 +7,12 @@ const stopAnimate = window.cancelAnimationFrame;
 const ROCKS = [];
 const LEFT_ARROW = 37;
 const RIGHT_ARROW = 39;
+const BACKGROUNDS = [];
 
-var dodger, gameInteveral, leftKeyPressed, rightKeyPressed, score, won, update, draw;
+var background, nextBackground, dodger, gameInteveral, leftKeyPressed, rightKeyPressed, score, won, update, draw;
 
 function Start(){
-  renderBackground();
+  resetBackground();
   renderStart("#FFF");
   startMenuEvents();
 }
@@ -73,6 +74,7 @@ function Update(){
 }
 
 function updateGame(){
+  updateBackgrounds();
   rocksUpdate();
   dodger.update();
   animate(Update);
@@ -85,11 +87,28 @@ function Draw(){
 }
 
 function drawGame(){
-  renderBackground()
+  drawBackgrounds();
   renderScore();
   rocksDraw();
   dodger.draw();
   animate(Draw);
+}
+
+function drawBackgrounds(){
+  BACKGROUNDS.forEach(bg => bg.draw());
+}
+
+function updateBackgrounds(){
+  BACKGROUNDS.forEach((bg, i) => {
+    if(bg.y > GAME_HEIGHT){
+      BACKGROUNDS.splice(i, 1);
+      BACKGROUNDS.push(new Background(-GAME_HEIGHT))
+    } else {
+      bg.update();
+    }
+  })
+  background = BACKGROUNDS[0];
+  nextBackground = BACKGROUNDS[1];
 }
 
 function rocksUpdate(){
@@ -110,20 +129,42 @@ function rocksDraw(){
 }
 
 function checkCollision(rock){
-  const dodgerRightEdge = dodger.x + 70;
-  const dodgerLeftEdge = dodger.x + 10;
+  var dodgerRightEdge, dodgerLeftEdge, rockRightEdge, rockLeftEdge, gameHeight;
+  if(rock.type == 'smallRock'){
+    dodgerRightEdge = dodger.x + 70;
+    dodgerLeftEdge = dodger.x + 10;
 
-  const rockRightEdge = rock.x + 40;
-  const rockLeftEdge = rock.x;
+    rockRightEdge = rock.x + 40;
+    rockLeftEdge = rock.x;
 
-  if(rock.y > GAME_HEIGHT - 40){
-    // check rock if it collides between left and right edge of dodger
-    if(rockLeftEdge >= dodgerLeftEdge && rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerLeftEdge && rockRightEdge <= dodgerRightEdge){
-      return true;
-    } else if(rockRightEdge >= dodgerLeftEdge && rockLeftEdge <= dodgerLeftEdge){
-      return true;
-    } else if(rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerRightEdge){
-      return true;
+    gameHeight = GAME_HEIGHT - 40;
+    if(rock.y > gameHeight){
+      // check rock if it collides between left and right edge of dodger
+      if(rockLeftEdge >= dodgerLeftEdge && rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerLeftEdge && rockRightEdge <= dodgerRightEdge){
+        return true;
+      } else if(rock.y > gameHeight + 20 && rockRightEdge >= dodgerLeftEdge && rockLeftEdge <= dodgerLeftEdge){
+        return true;
+      } else if(rock.y > gameHeight + 20 && rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerRightEdge){
+        return true;
+      }
+    }
+  } else {
+    dodgerRightEdge = dodger.x + 70;
+    dodgerLeftEdge = dodger.x + 10;
+
+    rockRightEdge = rock.x + 60;
+    rockLeftEdge = rock.x;
+
+    gameHeight = GAME_HEIGHT - 80;
+    if(rock.y > gameHeight){
+      // check rock if it collides between left and right edge of dodger
+      if(rockLeftEdge >= dodgerLeftEdge && rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerLeftEdge && rockRightEdge <= dodgerRightEdge){
+        return true;
+      } else if(rockRightEdge >= dodgerLeftEdge && rockLeftEdge <= dodgerLeftEdge){
+        return true;
+      } else if(rockLeftEdge <= dodgerRightEdge && rockRightEdge >= dodgerRightEdge){
+        return true;
+      }
     }
   }
 }
@@ -131,13 +172,13 @@ function checkCollision(rock){
 function endGame(){
   clearInterval(gameInteveral);
   removeDodgerControls();
-  renderBackground();
+  while(BACKGROUNDS.length){BACKGROUNDS.pop()}
   while(ROCKS.length){ROCKS.pop()}
   stopAnimate(update);
   stopAnimate(draw);
   update = undefined;
   draw = undefined;
-  renderBackground();
+  resetBackground();
   renderRetry("#FFF");
   retryMenuEvents();
 }
@@ -152,20 +193,20 @@ function renderRetry(color){
 
 function startColor(e){
   if(e.clientX > 260 && e.clientX < 330 && e.clientY > 185 && e.clientY < 210){
-    renderBackground();
+    background.draw();
     renderStart("red");
   } else {
-    renderBackground();
+    background.draw();
     renderStart("#FFF");
   }
 }
 
 function retryColor(e){
   if(e.clientX > 255 && e.clientX < 350 && e.clientY > 280 && e.clientY < 310){
-    renderBackground();
+    background.draw();
     renderRetry("red");
   } else {
-    renderBackground();
+    background.draw();
     renderRetry("#FFF");
   }
 }
@@ -176,10 +217,7 @@ function renderStart(color){
   ctx.fillText("Start", 250, 200);
 }
 
-function renderBackground(){
-  var background = document.getElementById('background');
-  ctx.drawImage(background, 0, 0, GAME_WIDTH, GAME_HEIGHT);
-}
+
 
 function renderScore(){
   ctx.fillStyle = "#FFF";
@@ -216,7 +254,7 @@ function retryGame(e){
 }
 
 function createRock(x){
-  var rock = new Rock(x);
+  var rock = Math.floor(Math.random()* 100) > 50 ? new BigRock(x) : new SmallRock(x);
   ROCKS.push(rock);
 }
 
@@ -224,17 +262,34 @@ class Rock{
   constructor(x){
     this.x = x;
     this.y = 0;
-    this.width = 40;
-    this.height = 40;
-    this.image = document.getElementById('rock');
+    this.width = 50;
+    this.height = 50;
+  }
+
+  draw(){
+    ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
   }
 
   update(){
     this.y += 4;
   }
+}
 
-  draw(){
-    ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+class BigRock extends Rock{
+  constructor(x){
+    super(x);
+    this.width = 60;
+    this.height = 60;
+    this.type = 'bigrock';
+    this.image = document.getElementById('bigrock');
+  }
+}
+
+class SmallRock extends Rock{
+  constructor(x){
+    super(x);
+    this.type = 'smallRock';
+    this.image = document.getElementById('rock');
   }
 }
 
@@ -257,5 +312,30 @@ class Dodger {
 
   draw(){
     ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+  }
+}
+
+function resetBackground(){
+  background = new Background(0);
+  nextBackground = new Background(-GAME_HEIGHT);
+  BACKGROUNDS.push(background);
+  BACKGROUNDS.push(nextBackground);
+  background.draw();
+  nextBackground.draw();
+}
+
+class Background {
+  constructor(y){
+    this.image = document.getElementById('background');
+    this.x = 0;
+    this.y = y;
+  }
+
+  update(){
+    this.y += 2;
+  }
+
+  draw(){
+    ctx.drawImage(this.image, 0, this.y, GAME_WIDTH, GAME_HEIGHT);
   }
 }
